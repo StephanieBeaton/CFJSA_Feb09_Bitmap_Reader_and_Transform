@@ -1,25 +1,5 @@
 'use strict';
 
-/* ---------------------------------------------------------------
-Tyler email Thu Feb 5, 2015 7:30pm
-
-Transform doesn't have to be a callback if you're doing everything sync
- but it should be a function that you can drop in.
- Essentially your program should be able to theoretically take
- multiple different transform functions without having to do more work
- than transform(bitmapObject) or transform(buffer).
- Your index.js file
- or bitmap.js file should really just coordinate that work that needs
- to be done. All of the "work" should be abstracted into functions
- that will reside in lib/.
- Essentially your main file should
-  open the bitmap file,
-  send to a function to read the header,
-  send it to a function to read the palette,
-  send it to a function that transforms the palette, etc.
-// ------------------------------------------------------------------
-*/
-
 function PaletteObj () {
   this.red;
   this.blue;
@@ -40,10 +20,13 @@ var fs = require('fs');
 // bitmap is a Buffer
 var bitmap = fs.readFileSync('test.bmp');
 
+
+// Buffer class --
+// http://nodejs.org/api/buffer.html
 var bitmapObject = {};
 
 bitmapObject.type          = bitmap.toString('utf-8', 0, 2);
-bitmapObject.fileSize      = bitmap.readInt32LE(2);
+bitmapObject.size          = bitmap.readInt32LE(2);
 bitmapObject.startOfPixels = bitmap.readInt32LE(10);
 bitmapObject.dibHeaderSize = bitmap.readInt32LE(14);
 
@@ -59,7 +42,7 @@ bitmapObject.palettes      = [];
 
 // bitmapObject --
 //{ type: 'BM',
-//  fileSize: 11078,
+//  size: 11078,
 //  startOfPixels: 1078,
 //  dibHeaderSize: 40,   // this tells us the DIB header type
 //  width: 100,
@@ -90,19 +73,31 @@ for (var i = 0; i < (bitmapObject.paletteSize * 4); i += 4) {
    palette.red   = bitmap.readUInt8(paletteOffset + i + 2);
    palette.alpha = bitmap.readUInt8(paletteOffset + i + 3);
 
-   // experiment
-   palette.blue  = 0;
-   palette.green = 0;
-   palette.red   = 100;
+   /*
+   if ( !(palette.blue == 0 && palette.green == 0 && palette.red == 0)) {
+     palette.blue   = 100;
+     palette.green  = 0;
+     palette.red    = 0;
+   }
+   */
 
    bitmapObject.palettes.push(palette);
+
+   //  experiment -- write the file out
+
+   // blue
+   bitmap.writeInt8(0,             paletteOffset + i);
+   // green
+   bitmap.writeInt8(0,             paletteOffset + i + 1);
+   // red
+   bitmap.writeInt8(100,           paletteOffset + i + 2);
+   bitmap.writeInt8(palette.alpha, paletteOffset + i + 3);
 
 }
 
 
 //bitmapObject.pixels = [];
 
-// -----------------------------------------------------
 // find out how many values there are in the pixel table
 bitmapObject.uniqueOffsetsIntoPallete = {};
 var pixel;
@@ -121,20 +116,14 @@ for(var propertyName in bitmapObject.uniqueOffsetsIntoPallete) {
   console.log(bitmapObject.palettes[propertyName]);
 }
 // end of "find out how many values there are in the pixel table"
-// -----------------------------------------------------
-
 
 console.dir(bitmapObject);
 
 console.log(bitmapObject.palettes.length);
 
-// -----------------------------------------------------
-// Transform the pallet
-// -----------------------------------------------------
+// transform the pallet
 
-// -----------------------------------------------------
-// Print out new bitmap file
-// -----------------------------------------------------
+// print out new bitmap file
 
 // first copy original buffer into new buffer
 
@@ -150,43 +139,19 @@ A typical computer monitor and video card may offer 8 bits of color precision
 // bitmap reference --
 // https://docs.nodejitsu.com/articles/advanced/buffers/how-to-use-buffers
 // buffer.copy(target, targetStart=0, sourceStart=0, sourceEnd=buffer.length);
-console.log("bitmapObject.fileSize" + bitmapObject.fileSize);
-var bitmap_new = new Buffer(bitmapObject.fileSize);
+var bitmap_new = new Buffer(bitmapObject.size);
 bitmap.copy(bitmap_new, 0);
 
 // copy the new pallet table from the bitmapObject to the new buffer
 
-console.log("bitmapObject.palettes.length = " + bitmapObject.palettes.length);
-console.log("paletteOffset = " + paletteOffset);
-
-for (var i = 0; i < bitmapObject.palettes.length; i += 1) {
-
-   console.log("inside loop");
-   console.log("i = " + i);
+for (var i = 0; i < bitmapObject.palettes.length; i += 4) {
 
    var palette   = bitmapObject.palettes[i];
 
-   var x;
-   x = paletteOffset + (i * 4);
-   console.log("blue offset = " + x);
-   console.log("palette.blue = " + palette.blue);
-   bitmap_new.writeUInt8(palette.blue,  x);
-
-   x = paletteOffset + (i * 4) + 1;
-   console.log("green offset = " + x);
-   console.log("palette.green = " + palette.green);
-   bitmap_new.writeUInt8(palette.green, x);
-
-   x = paletteOffset + (i * 4) + 2;
-   console.log("red offset = " + x);
-   console.log("palette.red = " + palette.red);
-   bitmap_new.writeUInt8(palette.red,   x);
-
-   x = paletteOffset + (i * 4) + 3;
-   console.log("alpha offset = " + x);
-   console.log("palette.alpha = " + palette.alpha);
-
-   bitmap_new.writeUInt8(palette.alpha, x);
+   bitmap_new.writeInt8(palette.blue,  paletteOffset + i);
+   bitmap_new.writeInt8(palette.green, paletteOffset + i + 1);
+   bitmap_new.writeInt8(palette.red,   paletteOffset + i + 2);
+   bitmap_new.writeInt8(palette.alpha, paletteOffset + i + 3);
 }
 
 // write the buffer to a file
@@ -215,9 +180,9 @@ var options = {
   encoding:  'utf8',
   mode: 438,
   flag: 'w'
-};
+}
 
-fs.writeFileSync('transformed.bmp', bitmap_new);
+fs.writeFileSync('transformed.bmp', bitmap_copy);
 
 
 
