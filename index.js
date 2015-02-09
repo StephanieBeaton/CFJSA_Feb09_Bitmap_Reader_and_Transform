@@ -72,7 +72,7 @@ var app = function(input) {
 
   //  no test for this because it is essentially a node function
   result = writeBufferToFile.writeFile(bitmap_new);
-  console.log("called writeBufferToFile")
+  console.log("called writeBufferToFile");
   console.log(result);
 
   // -----------------------------------------------------
